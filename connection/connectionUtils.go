@@ -3,7 +3,6 @@ package connection
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 )
@@ -61,7 +60,6 @@ func (c *Client) GetStatus() StatusResponse {
 		log.Fatal(err)
 	}
 
-	fmt.Println(c.token)
 	request.Header.Set("x-auth-token", c.token)
 	request.Header.Set("content-type", "application/json")
 
@@ -79,12 +77,10 @@ func (c *Client) GetStatus() StatusResponse {
 		log.Fatal(err)
 	}
 
-	fmt.Println(result)
-
 	return result
 }
 
-func (c *Client) GetBoard() StatusResponse {
+func (c *Client) GetBoard() []string {
 
 	boardAddr := warshipServerAddr + "/api/game/board"
 	request, err := http.NewRequest(http.MethodGet, boardAddr, nil)
@@ -93,7 +89,6 @@ func (c *Client) GetBoard() StatusResponse {
 		log.Fatal(err)
 	}
 
-	fmt.Println(c.token)
 	request.Header.Set("x-auth-token", c.token)
 	request.Header.Set("content-type", "application/json")
 
@@ -104,14 +99,15 @@ func (c *Client) GetBoard() StatusResponse {
 	}
 	defer response.Body.Close()
 
-	var result StatusResponse
+	var result BoardResponse
 	err = json.NewDecoder(response.Body).Decode(&result)
+
+	//bodyBytes, err := ioutil.ReadAll(response.Body)
+	//err = json.Unmarshal(bodyBytes, &result)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println(result)
-
-	return result
+	return result.Board
 }
