@@ -2,21 +2,29 @@ package game
 
 import (
 	"statki/connection"
+	"time"
 )
 
 type Game struct {
 	c connection.Client
 }
 
-type client interface {
-	GameInit(wpbot bool) error
-	//GameInit(coords []string, desc, nick, target_nick string, wpbot bool) error
-	GetStatus(token string) (*connection.StatusResponse, error)
-	Board() ([]string, error)
+func (g *Game) Start() {
+	for !g.Started() {
+		time.Sleep(1 * time.Second)
+	}
 }
 
-func New(c client) *Game {
+func (g *Game) GameInit(wpbot bool) {
+	g.c.GameInit(wpbot)
+}
+
+func (g *Game) Started() bool {
+	return g.c.GetStatus().GameStatus == "game_in_progress"
+}
+
+func New(client *connection.Client) *Game {
 	return &Game{
-		c,
+		c: *client,
 	}
 }

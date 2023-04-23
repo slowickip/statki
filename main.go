@@ -7,8 +7,8 @@ import (
 
 func main() {
 	client := connection.Client{}
-	client.GameInit()
+	gameInstance := game.New(&client)
 
-	game := game.New(&client)
-
+	gameInstance.GameInit(true)
+	gameInstance.Start()
 }
