@@ -9,10 +9,12 @@ import (
 )
 
 type Game struct {
-	c        connection.Client
+	C        connection.Client
 	status   connection.StatusResponse
 	myShips  [10][10]gui.State
 	oppShips [10][10]gui.State
+	shots    int
+	hits     int
 }
 
 type Coordinate struct {
@@ -21,23 +23,28 @@ type Coordinate struct {
 }
 
 func (g *Game) Start() {
-	g.status = g.c.GetStatus()
+	g.status = g.C.GetStatus()
 	for !g.Started() {
 		time.Sleep(1 * time.Second)
-		g.status = g.c.GetStatus()
+		g.status = g.C.GetStatus()
 	}
+	g.shots = 0
+	g.hits = 0
 	ui := gui.NewGUI(true)
-	myBoard := gui.NewBoard(1, 3, nil)
-	oppBoard := gui.NewBoard(50, 3, nil)
-
+	myBoard := gui.NewBoard(1, 6, nil)
+	oppBoard := gui.NewBoard(50, 6, nil)
+	timer := gui.NewText(50, 1, "", nil)
+	accuracy := gui.NewText(50, 3, "Accuracy: ", nil)
 	txt := gui.NewText(1, 1, "Press Ctrl+C to exit", nil)
-	statusText := gui.NewText(30, 1, "", nil)
-	desc := g.c.GetDesc()
-	myNick := gui.NewText(1, 25, desc.Nick, nil)
-	myDesc := gui.NewText(1, 26, desc.Desc, nil)
-	oppNick := gui.NewText(1, 28, desc.Opponent, nil)
-	oppDesc := gui.NewText(1, 29, desc.OppDesc, nil)
+	statusText := gui.NewText(1, 3, "", nil)
+	desc := g.C.GetDesc()
+	myNick := gui.NewText(1, 30, desc.Nick, nil)
+	myDesc := gui.NewText(1, 31, desc.Desc, nil)
+	oppNick := gui.NewText(1, 33, desc.Opponent, nil)
+	oppDesc := gui.NewText(1, 34, desc.OppDesc, nil)
 
+	ui.Draw(timer)
+	ui.Draw(accuracy)
 	ui.Draw(txt)
 	ui.Draw(statusText)
 	ui.Draw(myBoard)
@@ -48,19 +55,26 @@ func (g *Game) Start() {
 	ui.Draw(oppDesc)
 	go func() {
 		ui.Start(nil)
+		g.C.AbandonGame()
 	}()
 
 	g.importShips()
 	go func() {
-		for {
+		for g.Started() {
+			c := make(chan bool)
 			if !g.status.ShouldFire {
 				statusText.SetText("Opponent's turn")
+				c <- false
 			} else if g.status.ShouldFire {
 				statusText.SetText("Your turn")
+				go g.startTimer(timer, c)
 				coordString := oppBoard.Listen(context.TODO())
-				result := g.c.Fire(coordString)
+				c <- false
+				g.shots++
+				result := g.C.Fire(coordString)
 				coord := parseCoordinate(coordString)
 				if result.Result == "hit" {
+					g.hits++
 					g.oppShips[coord.X][coord.Y] = gui.Hit
 				} else if result.Result == "miss" {
 					g.oppShips[coord.X][coord.Y] = gui.Miss
@@ -68,21 +82,32 @@ func (g *Game) Start() {
 					g.oppShips[coord.X][coord.Y] = gui.Hit
 				}
 				oppBoard.SetStates(g.oppShips)
-				ui.Log("Coordinate: %s", coord)
+				accuracy.SetText("Accuracy: " + strconv.Itoa(g.hits*100/g.shots) + "%")
+				//ui.Log("Coordinate: %s", coord)
 			}
 		}
 	}()
 
 	for g.Started() {
-		g.status = g.c.GetStatus()
+		g.status = g.C.GetStatus()
 		g.updateMyShips()
 		myBoard.SetStates(g.myShips)
 		time.Sleep(1 * time.Second)
 	}
+
+	g.status = g.C.GetStatus()
+	if g.status.GameStatus == "ended" {
+		if g.status.LastGameStatus == "win" {
+			statusText.SetText("You won!")
+		} else {
+			statusText.SetText("You lost!")
+		}
+	}
+	time.Sleep(1 * time.Second)
 }
 
-func (g *Game) GameInit(wpbot bool) {
-	g.c.GameInit(wpbot)
+func (g *Game) GameInit(requestStruct connection.GameRequestStruct) {
+	g.C.GameInit(requestStruct)
 }
 
 func (g *Game) Started() bool {
@@ -91,12 +116,31 @@ func (g *Game) Started() bool {
 
 func New(client *connection.Client) *Game {
 	return &Game{
-		c: *client,
+		C: *client,
 	}
 }
 
+func (g *Game) startTimer(timer *gui.Text, event chan bool) {
+	ticker := time.NewTicker(time.Second)
+	i := 60
+	for i > 0 {
+		select {
+		case <-ticker.C:
+			i--
+			timer.SetText(strconv.Itoa(i) + "s")
+			if i == 0 {
+				g.C.AbandonGame()
+				timer.SetText("Oddałeś grę walkoverem")
+			}
+		case <-event:
+			return
+		}
+	}
+
+}
+
 func (g *Game) importShips() {
-	myShips := g.c.GetBoard()
+	myShips := g.C.GetBoard()
 	states := [10][10]gui.State{}
 	for i := range states {
 		states[i] = [10]gui.State{}

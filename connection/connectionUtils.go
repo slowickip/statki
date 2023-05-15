@@ -3,6 +3,7 @@ package connection
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 )
@@ -18,19 +19,20 @@ type Client struct {
 }
 
 type GameRequestStruct struct {
-	Wpbot bool `json:"wpbot"`
+	Wpbot      bool   `json:"wpbot"`
+	Nick       string `json:"nick"`
+	TargetNick string `json:"target_nick"`
 }
 
 type FireRequestStruct struct {
 	Coord string `json:"coord"`
 }
 
-func (c *Client) GameInit(wpbot bool) {
+func (c *Client) GameInit(values GameRequestStruct) {
 	c.httpClient = http.Client{
 		Timeout: httpClientTimeout,
 	}
 
-	values := GameRequestStruct{Wpbot: wpbot}
 	json_data, err := json.Marshal(values)
 	if err != nil {
 		log.Println(err)
@@ -163,4 +165,51 @@ func (c *Client) Fire(coord string) FireResponse {
 	}
 
 	return result
+}
+
+func (c *Client) GetPlayers() []Player {
+	playersAddr := warshipServerAddr + "/api/game/list"
+	request, err := http.NewRequest(http.MethodGet, playersAddr, nil)
+	if err != nil {
+		log.Println(err)
+	}
+
+	request.Header.Set("x-auth-token", c.token)
+	request.Header.Set("content-type", "application/json")
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		log.Println(err)
+	}
+	defer func() {
+		err = response.Body.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
+	var result []Player
+	err = json.NewDecoder(response.Body).Decode(&result)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return result
+}
+
+func (c *Client) AbandonGame() {
+	fmt.Println("Abandoning game...")
+	abandonAddr := warshipServerAddr + "/api/game/abandon"
+	request, err := http.NewRequest(http.MethodDelete, abandonAddr, nil)
+	if err != nil {
+		log.Println(err)
+	}
+
+	request.Header.Set("x-auth-token", c.token)
+	request.Header.Set("content-type", "application/json")
+
+	_, err = c.httpClient.Do(request)
+	if err != nil {
+		log.Println(err)
+	}
 }
