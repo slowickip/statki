@@ -8,6 +8,11 @@ import (
 	"time"
 )
 
+type Coordinate struct {
+	X int
+	Y int
+}
+
 type Game struct {
 	C        connection.Client
 	status   connection.StatusResponse
@@ -15,11 +20,6 @@ type Game struct {
 	oppShips [10][10]gui.State
 	shots    int
 	hits     int
-}
-
-type Coordinate struct {
-	X int
-	Y int
 }
 
 func (g *Game) Start() {
@@ -42,6 +42,7 @@ func (g *Game) Start() {
 	myDesc := gui.NewText(1, 31, desc.Desc, nil)
 	oppNick := gui.NewText(1, 33, desc.Opponent, nil)
 	oppDesc := gui.NewText(1, 34, desc.OppDesc, nil)
+	ctx := context.Background()
 
 	ui.Draw(timer)
 	ui.Draw(accuracy)
@@ -54,7 +55,7 @@ func (g *Game) Start() {
 	ui.Draw(oppNick)
 	ui.Draw(oppDesc)
 	go func() {
-		ui.Start(nil)
+		ui.Start(ctx, nil)
 		g.C.AbandonGame()
 	}()
 
@@ -79,6 +80,7 @@ func (g *Game) Start() {
 				} else if result.Result == "miss" {
 					g.oppShips[coord.X][coord.Y] = gui.Miss
 				} else if result.Result == "sunk" {
+					g.hits++
 					g.oppShips[coord.X][coord.Y] = gui.Hit
 				}
 				oppBoard.SetStates(g.oppShips)

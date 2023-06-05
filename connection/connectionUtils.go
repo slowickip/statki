@@ -6,27 +6,13 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 )
 
 const (
 	warshipServerAddr = "https://go-pjatk-server.fly.dev"
 	httpClientTimeout = 0
 )
-
-type Client struct {
-	httpClient http.Client
-	token      string
-}
-
-type GameRequestStruct struct {
-	Wpbot      bool   `json:"wpbot"`
-	Nick       string `json:"nick"`
-	TargetNick string `json:"target_nick"`
-}
-
-type FireRequestStruct struct {
-	Coord string `json:"coord"`
-}
 
 func (c *Client) GameInit(values GameRequestStruct) {
 	c.httpClient = http.Client{
@@ -39,9 +25,22 @@ func (c *Client) GameInit(values GameRequestStruct) {
 	}
 	postAddr := warshipServerAddr + "/api/game"
 
-	resp, err := c.httpClient.Post(postAddr, "application/json", bytes.NewBuffer(json_data))
-	if err != nil {
-		log.Println(err)
+	//resp, err := c.httpClient.Post(postAddr, "application/json", bytes.NewBuffer(json_data))
+	//if err != nil {
+	//	log.Println(err)
+	//}
+
+	resp := &http.Response{}
+	ctr := 0
+	for ctr < 5 {
+		resp, err = c.httpClient.Post(postAddr, "application/json", bytes.NewBuffer(json_data))
+		if err != nil {
+			//log.Println(err)
+			time.Sleep(1 * time.Second)
+			ctr++
+		} else {
+			break
+		}
 	}
 
 	c.token = resp.Header.Get("x-auth-token")
@@ -58,10 +57,19 @@ func (c *Client) GetStatus() StatusResponse {
 	request.Header.Set("x-auth-token", c.token)
 	request.Header.Set("content-type", "application/json")
 
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		log.Println(err)
+	response := &http.Response{}
+	ctr := 0
+	for ctr < 3 {
+		response, err = c.httpClient.Do(request)
+		if err != nil {
+			log.Println(err)
+			time.Sleep(1 * time.Second)
+			ctr++
+		} else {
+			break
+		}
 	}
+
 	defer func() {
 		err := response.Body.Close()
 		if err != nil {
@@ -70,6 +78,84 @@ func (c *Client) GetStatus() StatusResponse {
 	}()
 
 	var result StatusResponse
+	err = json.NewDecoder(response.Body).Decode(&result)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return result
+}
+
+func (c *Client) GetStats(nick string) PlayerStats {
+	boardAddr := warshipServerAddr + "/api/stats/" + nick
+	request, err := http.NewRequest(http.MethodGet, boardAddr, nil)
+	if err != nil {
+		log.Println(err)
+	}
+
+	request.Header.Set("x-auth-token", c.token)
+	request.Header.Set("content-type", "application/json")
+
+	response := &http.Response{}
+	ctr := 0
+	for ctr < 5 {
+		response, err = c.httpClient.Do(request)
+		if err != nil {
+			log.Println(err)
+			time.Sleep(1 * time.Second)
+			ctr++
+		} else {
+			break
+		}
+	}
+
+	defer func() {
+		err := response.Body.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
+	var result PlayerStats
+	err = json.NewDecoder(response.Body).Decode(&result)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return result
+}
+
+func (c *Client) GetRanking() Ranking {
+	boardAddr := warshipServerAddr + "/api/stats"
+	request, err := http.NewRequest(http.MethodGet, boardAddr, nil)
+	if err != nil {
+		log.Println(err)
+	}
+
+	request.Header.Set("x-auth-token", c.token)
+	request.Header.Set("content-type", "application/json")
+
+	response := &http.Response{}
+	ctr := 0
+	for ctr < 5 {
+		response, err = c.httpClient.Do(request)
+		if err != nil {
+			//log.Println(err)
+			time.Sleep(1 * time.Second)
+			ctr++
+		} else {
+			break
+		}
+	}
+
+	defer func() {
+		err := response.Body.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
+	var result Ranking
 	err = json.NewDecoder(response.Body).Decode(&result)
 	if err != nil {
 		log.Println(err)
@@ -88,10 +174,19 @@ func (c *Client) GetBoard() []string {
 	request.Header.Set("x-auth-token", c.token)
 	request.Header.Set("content-type", "application/json")
 
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		log.Println(err)
+	response := &http.Response{}
+	ctr := 0
+	for ctr < 5 {
+		response, err = c.httpClient.Do(request)
+		if err != nil {
+			log.Println(err)
+			time.Sleep(1 * time.Second)
+			ctr++
+		} else {
+			break
+		}
 	}
+
 	defer func() {
 		err := response.Body.Close()
 		if err != nil {
@@ -118,10 +213,19 @@ func (c *Client) GetDesc() DescResponse {
 	request.Header.Set("x-auth-token", c.token)
 	request.Header.Set("content-type", "application/json")
 
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		log.Println(err)
+	response := &http.Response{}
+	ctr := 0
+	for ctr < 5 {
+		response, err = c.httpClient.Do(request)
+		if err != nil {
+			log.Println(err)
+			time.Sleep(1 * time.Second)
+			ctr++
+		} else {
+			break
+		}
 	}
+
 	defer func() {
 		err = response.Body.Close()
 		if err != nil {
@@ -153,9 +257,17 @@ func (c *Client) Fire(coord string) FireResponse {
 	request, err := http.NewRequest(http.MethodPost, postAddr, bytes.NewBuffer(json_data))
 	request.Header.Set("x-auth-token", c.token)
 
-	resp, err := c.httpClient.Do(request)
-	if err != nil {
-		log.Println(err)
+	resp := &http.Response{}
+	ctr := 0
+	for ctr < 5 {
+		resp, err = c.httpClient.Do(request)
+		if err != nil {
+			log.Println(err)
+			time.Sleep(1 * time.Second)
+			ctr++
+		} else {
+			break
+		}
 	}
 
 	var result FireResponse
@@ -177,10 +289,19 @@ func (c *Client) GetPlayers() []Player {
 	request.Header.Set("x-auth-token", c.token)
 	request.Header.Set("content-type", "application/json")
 
-	response, err := c.httpClient.Do(request)
-	if err != nil {
-		log.Println(err)
+	response := &http.Response{}
+	ctr := 0
+	for ctr < 5 {
+		response, err = c.httpClient.Do(request)
+		if err != nil {
+			log.Println(err)
+			time.Sleep(1 * time.Second)
+			ctr++
+		} else {
+			break
+		}
 	}
+
 	defer func() {
 		err = response.Body.Close()
 		if err != nil {

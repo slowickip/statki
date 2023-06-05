@@ -1,5 +1,40 @@
 package connection
 
+import (
+	"net/http"
+)
+
+type Client struct {
+	httpClient http.Client
+	token      string
+}
+
+type Stats struct {
+	Games  int    `json:"games"`
+	Nick   string `json:"nick"`
+	Points int    `json:"points"`
+	Rank   int    `json:"rank"`
+	Wins   int    `json:"wins"`
+}
+
+type PlayerStats struct {
+	Stats Stats `json:"stats"`
+}
+
+type Ranking struct {
+	Stats []Stats `json:"stats"`
+}
+
+type GameRequestStruct struct {
+	Wpbot      bool   `json:"wpbot"`
+	Nick       string `json:"nick"`
+	TargetNick string `json:"target_nick"`
+}
+
+type FireRequestStruct struct {
+	Coord string `json:"coord"`
+}
+
 type BoardResponse struct {
 	Board []string `json:"board"`
 }
